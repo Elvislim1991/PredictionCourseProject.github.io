@@ -2751,176 +2751,74 @@ combPred &lt;- predict(comModFit, predDF)</code></pre>
 </div>
 <div id="evaluation-metrics" class="section level1">
 <h1>Evaluation metrics</h1>
-<p>After we done training the models, we will use confusion matrix to evaluation the performance of each classifiers.</p>
+<p>After we done training the models, we will use confusion matrix to evaluation the performance of each classifiers on validation set. Other than that, we can access to cv data to check it’s accuracy estimate compare to our validation accuracy for each model. We can see CV is a pretty good estimate for out of sample error estimation.</p>
 <table>
 <thead>
 <tr class="header">
 <th>Model</th>
-<th>Accuracy</th>
+<th>CV Accuracy</th>
+<th>Validation Accuracy</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
 <td>Random forest</td>
+<td>99.81</td>
 <td>99.77</td>
 </tr>
 <tr class="even">
 <td>Gradient Boosting Machine</td>
+<td>98.73</td>
 <td>98.62</td>
 </tr>
 <tr class="odd">
 <td>KNN</td>
+<td>92.06</td>
 <td>93.37</td>
 </tr>
 <tr class="even">
 <td>Stacking (3 Models)</td>
+<td>99.79</td>
 <td>99.82</td>
 </tr>
 </tbody>
 </table>
 <p>Using the validation datasets, we can predict the out of sample error as above. Stacking all 3 models, we able to achieve 99.82% accuracy. Pretty good model for this datasets.</p>
+<pre class="r"><code># Check the cross validation results for random forest
+rf.cv.acc &lt;- model.rf$resample$Accuracy
+
+paste(&quot;random forest CV accuracy is:&quot;, round(mean(rf.cv.acc)*100, 2))</code></pre>
+<pre><code>## [1] &quot;random forest CV accuracy is: 99.81&quot;</code></pre>
 <pre class="r"><code># Compare predict results for validation datasets
 
-print(&quot;random forest classifier confusion matrix&quot;)</code></pre>
-<pre><code>## [1] &quot;random forest classifier confusion matrix&quot;</code></pre>
-<pre class="r"><code>confusionMatrix(pred.rf, factor(validation.filter.col.num$classe))</code></pre>
-<pre><code>## Confusion Matrix and Statistics
-## 
-##           Reference
-## Prediction    A    B    C    D    E
-##          A 1114    3    0    0    0
-##          B    2  755    1    0    0
-##          C    0    1  683    2    0
-##          D    0    0    0  641    0
-##          E    0    0    0    0  721
-## 
-## Overall Statistics
-##                                          
-##                Accuracy : 0.9977         
-##                  95% CI : (0.9956, 0.999)
-##     No Information Rate : 0.2845         
-##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16      
-##                                          
-##                   Kappa : 0.9971         
-##                                          
-##  Mcnemar&#39;s Test P-Value : NA             
-## 
-## Statistics by Class:
-## 
-##                      Class: A Class: B Class: C Class: D Class: E
-## Sensitivity            0.9982   0.9947   0.9985   0.9969   1.0000
-## Specificity            0.9989   0.9991   0.9991   1.0000   1.0000
-## Pos Pred Value         0.9973   0.9960   0.9956   1.0000   1.0000
-## Neg Pred Value         0.9993   0.9987   0.9997   0.9994   1.0000
-## Prevalence             0.2845   0.1935   0.1744   0.1639   0.1838
-## Detection Rate         0.2840   0.1925   0.1741   0.1634   0.1838
-## Detection Prevalence   0.2847   0.1932   0.1749   0.1634   0.1838
-## Balanced Accuracy      0.9986   0.9969   0.9988   0.9984   1.0000</code></pre>
-<pre class="r"><code>print(&quot;GBM classifier confusion matrix&quot;)</code></pre>
-<pre><code>## [1] &quot;GBM classifier confusion matrix&quot;</code></pre>
-<pre class="r"><code>confusionMatrix(pred.gbm, factor(validation.filter.col.num$classe))</code></pre>
-<pre><code>## Confusion Matrix and Statistics
-## 
-##           Reference
-## Prediction    A    B    C    D    E
-##          A 1116    7    0    0    0
-##          B    0  743    3    7    4
-##          C    0    6  671    9    1
-##          D    0    3    9  626    3
-##          E    0    0    1    1  713
-## 
-## Overall Statistics
-##                                           
-##                Accuracy : 0.9862          
-##                  95% CI : (0.9821, 0.9896)
-##     No Information Rate : 0.2845          
-##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
-##                                           
-##                   Kappa : 0.9826          
-##                                           
-##  Mcnemar&#39;s Test P-Value : NA              
-## 
-## Statistics by Class:
-## 
-##                      Class: A Class: B Class: C Class: D Class: E
-## Sensitivity            1.0000   0.9789   0.9810   0.9736   0.9889
-## Specificity            0.9975   0.9956   0.9951   0.9954   0.9994
-## Pos Pred Value         0.9938   0.9815   0.9767   0.9766   0.9972
-## Neg Pred Value         1.0000   0.9949   0.9960   0.9948   0.9975
-## Prevalence             0.2845   0.1935   0.1744   0.1639   0.1838
-## Detection Rate         0.2845   0.1894   0.1710   0.1596   0.1817
-## Detection Prevalence   0.2863   0.1930   0.1751   0.1634   0.1823
-## Balanced Accuracy      0.9988   0.9872   0.9880   0.9845   0.9941</code></pre>
-<pre class="r"><code>print(&quot;KNN classifier confusion matrix&quot;)</code></pre>
-<pre><code>## [1] &quot;KNN classifier confusion matrix&quot;</code></pre>
-<pre class="r"><code>confusionMatrix(pred.knn, factor(validation.filter.col.num$classe))</code></pre>
-<pre><code>## Confusion Matrix and Statistics
-## 
-##           Reference
-## Prediction    A    B    C    D    E
-##          A 1086   22    5    8    4
-##          B    9  678   24    4   11
-##          C    4   29  637   36    8
-##          D   14   18   16  582   18
-##          E    3   12    2   13  680
-## 
-## Overall Statistics
-##                                           
-##                Accuracy : 0.9337          
-##                  95% CI : (0.9255, 0.9413)
-##     No Information Rate : 0.2845          
-##     P-Value [Acc &gt; NIR] : &lt; 2e-16         
-##                                           
-##                   Kappa : 0.9162          
-##                                           
-##  Mcnemar&#39;s Test P-Value : 0.00131         
-## 
-## Statistics by Class:
-## 
-##                      Class: A Class: B Class: C Class: D Class: E
-## Sensitivity            0.9731   0.8933   0.9313   0.9051   0.9431
-## Specificity            0.9861   0.9848   0.9762   0.9799   0.9906
-## Pos Pred Value         0.9653   0.9339   0.8922   0.8981   0.9577
-## Neg Pred Value         0.9893   0.9747   0.9854   0.9814   0.9872
-## Prevalence             0.2845   0.1935   0.1744   0.1639   0.1838
-## Detection Rate         0.2768   0.1728   0.1624   0.1484   0.1733
-## Detection Prevalence   0.2868   0.1851   0.1820   0.1652   0.1810
-## Balanced Accuracy      0.9796   0.9391   0.9538   0.9425   0.9669</code></pre>
-<pre class="r"><code>print(&quot;Stacking all 3 classifiers confusion matrix&quot;)</code></pre>
-<pre><code>## [1] &quot;Stacking all 3 classifiers confusion matrix&quot;</code></pre>
-<pre class="r"><code>confusionMatrix(combPred, factor(validation.filter.col.num$classe))</code></pre>
-<pre><code>## Confusion Matrix and Statistics
-## 
-##           Reference
-## Prediction    A    B    C    D    E
-##          A 1114    1    0    0    0
-##          B    2  757    1    0    0
-##          C    0    1  683    2    0
-##          D    0    0    0  641    0
-##          E    0    0    0    0  721
-## 
-## Overall Statistics
-##                                           
-##                Accuracy : 0.9982          
-##                  95% CI : (0.9963, 0.9993)
-##     No Information Rate : 0.2845          
-##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
-##                                           
-##                   Kappa : 0.9977          
-##                                           
-##  Mcnemar&#39;s Test P-Value : NA              
-## 
-## Statistics by Class:
-## 
-##                      Class: A Class: B Class: C Class: D Class: E
-## Sensitivity            0.9982   0.9974   0.9985   0.9969   1.0000
-## Specificity            0.9996   0.9991   0.9991   1.0000   1.0000
-## Pos Pred Value         0.9991   0.9961   0.9956   1.0000   1.0000
-## Neg Pred Value         0.9993   0.9994   0.9997   0.9994   1.0000
-## Prevalence             0.2845   0.1935   0.1744   0.1639   0.1838
-## Detection Rate         0.2840   0.1930   0.1741   0.1634   0.1838
-## Detection Prevalence   0.2842   0.1937   0.1749   0.1634   0.1838
-## Balanced Accuracy      0.9989   0.9982   0.9988   0.9984   1.0000</code></pre>
+CM.RF &lt;- confusionMatrix(pred.rf, factor(validation.filter.col.num$classe))
+paste(&quot;random forest accuracy on validation set is:&quot;, round(CM.RF$overall[&#39;Accuracy&#39;]*100,2))</code></pre>
+<pre><code>## [1] &quot;random forest accuracy on validation set is: 99.77&quot;</code></pre>
+<pre class="r"><code># Check the cross validation results for gbm
+gbm.cv.acc &lt;- model.gbm$resample$Accuracy
+
+paste(&quot;Gradient boosting machine CV accuracy is:&quot;, round(mean(gbm.cv.acc)*100, 2))</code></pre>
+<pre><code>## [1] &quot;Gradient boosting machine CV accuracy is: 98.73&quot;</code></pre>
+<pre class="r"><code>CM.GBM &lt;- confusionMatrix(pred.gbm, factor(validation.filter.col.num$classe))
+paste(&quot;Gradient boosting machine accuracy on validation set is:&quot;, round(CM.GBM$overall[&#39;Accuracy&#39;]*100,2))</code></pre>
+<pre><code>## [1] &quot;Gradient boosting machine accuracy on validation set is: 98.62&quot;</code></pre>
+<pre class="r"><code># Check the cross validation results for knn
+knn.cv.acc &lt;- model.knn$resample$Accuracy
+
+paste(&quot;KNN CV accuracy is:&quot;, round(mean(knn.cv.acc)*100, 2))</code></pre>
+<pre><code>## [1] &quot;KNN CV accuracy is: 92.06&quot;</code></pre>
+<pre class="r"><code>CM.KNN &lt;- confusionMatrix(pred.knn, factor(validation.filter.col.num$classe))
+
+paste(&quot;KNN accuracy on validation set is:&quot;, round(CM.KNN$overall[&#39;Accuracy&#39;]*100, 2))</code></pre>
+<pre><code>## [1] &quot;KNN accuracy on validation set is: 93.37&quot;</code></pre>
+<pre class="r"><code># Check the cross validation results for stacking model
+comb.cv.acc &lt;- comModFit$resample$Accuracy
+
+paste(&quot;Stacking model CV accuracy is:&quot;, round(mean(comb.cv.acc)*100, 2))</code></pre>
+<pre><code>## [1] &quot;Stacking model CV accuracy is: 99.79&quot;</code></pre>
+<pre class="r"><code>CM.Stacking &lt;- confusionMatrix(combPred, factor(validation.filter.col.num$classe))
+paste(&quot;Stacking model accuracy on validation set is:&quot;, round(CM.Stacking$overall[&#39;Accuracy&#39;]*100, 2))</code></pre>
+<pre><code>## [1] &quot;Stacking model accuracy on validation set is: 99.82&quot;</code></pre>
 </div>
 <div id="test-prediction" class="section level1">
 <h1>Test Prediction</h1>
