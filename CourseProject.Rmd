@@ -1,0 +1,246 @@
+---
+title: "Prediction Assignment"
+author: "Elvis Lim"
+date: "11/29/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r library, include=FALSE}
+library(skimr)
+library(dplyr)
+library(caret)
+```
+
+# Executive summary
+The is a course project assignment from Coursera that involve prediction. The training 
+dataset provide collect measurement from accelerometers on the belt, forearm, arm,
+and dumbell of 6 participants. They were asked to perform barbell lifts in correctly 
+labeled with classe A and incorrectly in 5 different ways with classe labels B to F.
+
+The training dataset is split to 20% validation and 80% training set. The 80% training
+data will use 10 fold cross validation to fine tune the model and 20% validation data
+will use to predict the out of sample error for the models. 
+
+During the data cleaning process, we first drop all variables that are near zero
+variance. Other than that, we found that are large portion (>95%) of missing 
+observations on some variables. We decide to drop it due to there is no prediction
+benefits after compare the accuracy with knn imputed model and dropped missing value
+model. 
+
+For the model training, we use random forest and gradient boosting machine due to
+the nature of the model to do feature selection and generally perform well for classification.
+KNN classifier is select because of the relatively fast training speed and good accuracy. 
+Afterwards, to boost a little bit accuracy we will use model stacking
+to combine the prediction from this 3 classifiers and train with random forest.
+
+```{r download & readfile, include=FALSE, cache=TRUE}
+temp.train <- tempfile()
+temp.test <- tempfile()
+
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv",
+              destfile = temp.train)
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv",
+              destfile = temp.test)
+
+training <- read.csv(temp.train)
+testing <- read.csv(temp.test)
+
+unlink(temp.train)
+unlink(temp.test)
+```
+
+# EDA
+
+One of the challenges for this datasets is missing of code book to describe the measurement.
+Therefore, we need to use our judgement and distribution of the data to decide 
+whether to include the feature for our prediction model.
+
+using the skim function on training data set, we able to see there is 37 character 
+type variables. Majority of them is contain missing data, it's the same with numeric 
+variables with only 0.02 complete rate. 
+
+```{r EDA}
+names(training)
+
+skim(training)
+
+```
+# Data Cleaning
+Before we start training the model, several data cleaning need to perform. First,
+we split the training data into validation 20%, and testing 80%. Validation will be
+use for us to predict the out of sample accuracy.
+
+Besides, we need to exclude severals variables like timestamp, sequence and username
+which doesn't help in prediction.
+
+Next, we will convert the character columns into numerical and remove those with 
+near zero variance. Other than that, we will further remove features that having missing 
+observations. These function will apply to all 3 datasets (training, validation, 
+testing)
+
+```{r cleanData}
+# Split training to 80% training and 20% validation
+set.seed(1106)
+trainIndex <- createDataPartition(training$classe, p=.8, list=FALSE, times = 1)
+train <- training[trainIndex, ]
+validate <- training[-trainIndex, ]
+
+# Clean data
+col_exclude <- c("X", "raw_timestamp_part_1", "raw_timestamp_part_2",
+                 "user_name", "cvtd_timestamp", "new_window")
+
+# Convert characters col other that col_exclude to numeric and remove features 
+# with near zero variance
+
+train.char <- train %>% select_if(is.character) %>% 
+        select(-classe, -user_name:-new_window) %>% 
+        sapply(FUN = as.numeric) %>% as.data.frame() %>% cbind(classe=train$classe)
+
+train.clean <- train %>% select(-col_exclude) %>% select_if(is.numeric) %>% 
+        cbind(train.char)
+
+train.clean <- train.clean[, -nearZeroVar(train.clean)]
+
+# Dropped column with missing data
+
+clean_data <- function(df){
+        train.filter <- df %>% select(-col_exclude)
+        train.filter.col <- train.filter[,colSums(is.na(train.filter)) == 0]
+        train.filter.col.num <- train.filter.col %>% select_if(is.numeric)
+}
+
+
+train.filter.col.num <- clean_data(train) %>% cbind(classe=train$classe)
+
+validation.filter.col.num <- clean_data(validate)  %>% cbind(classe=validate$classe)
+
+test.filter.col.num <- clean_data(testing)
+
+str(train.filter.col.num)
+```
+
+# Model Training
+During the model training step, we first set the trainControl with cross validation
+with number equal 10 represent 10-fold. 
+
+We then train the 3 models with processed train set:
+
+1. Random Forest
+2. Gradient Boosting Machine
+3. KNN
+
+After create this 3 model, we will use stacking with random forest to combine
+all 3 models into one.
+
+```{r model, cache=TRUE}
+# Model training 
+
+train_control <- trainControl(method="cv", number=10)
+
+## random forest
+start.time <- Sys.time()
+
+model.rf <- train(classe~., data=train.filter.col.num, method="rf",
+                     trControl=train_control)
+
+end.time <- Sys.time()
+paste("Time to train random forest")
+print(end.time - start.time)
+
+start.time <- Sys.time()
+
+model.gbm <- train(classe~., data=train.filter.col.num, method="gbm", 
+                   trControl=train_control, verbose=FALSE)
+
+end.time <- Sys.time()
+paste("Time to train gbm")
+print(end.time - start.time)
+
+start.time <- Sys.time()
+
+model.knn <- train(classe~., data=train.filter.col.num, method="knn", 
+                   trControl=train_control)
+
+end.time <- Sys.time()
+paste("Time to train knn classifier")
+print(end.time - start.time)
+
+# Stacking all 3 clasifiers
+
+pred.rf <- predict(model.rf, validation.filter.col.num)
+
+pred.gbm <- predict(model.gbm, validation.filter.col.num)
+
+pred.knn <- predict(model.knn, validation.filter.col.num)
+
+predDF <- data.frame(pred.rf, pred.gbm, pred.knn, classe=validation.filter.col.num$classe)
+
+comModFit <- train(classe~., method="rf", data=predDF)
+
+combPred <- predict(comModFit, predDF)
+
+```
+
+# Evaluation metrics 
+
+After we done training the models, we will use confusion matrix to evaluation the
+performance of each classifiers.
+
+Model                           | Accuracy
+------------------------------  | ---------
+Random forest                   | 99.77
+Gradient Boosting Machine       | 98.62
+KNN                             | 93.37
+Stacking (3 Models)             | 99.82
+
+Using the validation datasets, we can predict the out of sample error as above.
+Stacking all 3 models, we able to achieve 99.82% accuracy. Pretty good model for
+this datasets.
+
+```{r Out of sample error}
+
+# Compare predict results for validation datasets
+
+print("random forest classifier confusion matrix")
+
+confusionMatrix(pred.rf, factor(validation.filter.col.num$classe))
+
+print("GBM classifier confusion matrix")
+
+confusionMatrix(pred.gbm, factor(validation.filter.col.num$classe))
+
+print("KNN classifier confusion matrix")
+
+confusionMatrix(pred.knn, factor(validation.filter.col.num$classe))
+
+print("Stacking all 3 classifiers confusion matrix")
+
+confusionMatrix(combPred, factor(validation.filter.col.num$classe))
+```
+
+# Test Prediction
+
+After running the prediction on the test set, we can see the prediction on the 20
+cases is commonly agree by all 3 models. Therefore, the stacking classifiers prediction
+is expect to predict with high confident.
+
+```{r Test Prediction}
+# Predict on test set
+pred.rf.test <- predict(model.rf, test.filter.col.num)
+
+pred.gbm.test <- predict(model.gbm, test.filter.col.num)
+
+pred.knn.test <- predict(model.knn, test.filter.col.num)
+
+pred.test.DF <- data.frame(pred.rf=pred.rf.test, pred.gbm=pred.gbm.test,
+                        pred.knn=pred.knn.test)
+
+combPred.test <- predict(comModFit, pred.test.DF)
+
+pred.test.DF$Stacking <- combPred.test
+print(pred.test.DF)
+```
